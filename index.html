@@ -3,7 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <title>Blessed-Cursed</title>
-<link rel="stylesheet" href="Blessed-Cursed7.css">
+
+<style>
+body{
+  margin:0;
+  height:100vh;
+  background:linear-gradient(#222021,#65737e);
+  font-family: Arial, sans-serif;
+  color: ff2c2c;
+}
+
+/* Container global */
+#container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  gap: 20px;
+}
+
+/* Règles */
+#rules {
+  font-size: 18px;
+  text-align: center;
+  max-width: 800px;
+  color: #a7adba;
+  font-family: SmallRoundhand, cursive;
+}
+/* JEU visible directement */
+#gameContainer {
+  display:flex;
+}
+
+canvas{
+  border:2px solid #222;
+  border-radius:10px;
+}
+</style>
 </head>
 
 <body>
@@ -16,7 +53,188 @@
     <canvas id="game"></canvas>
   </div>
 </div>
-<script src="Blessed-Cursed7.js">
+<script>
+initJeu();
+
+function initJeu() {
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+// taille
+canvas.width = Math.min(window.innerWidth * 0.9, 600);
+canvas.height = Math.min(window.innerHeight * 0.9, 800);
+
+const W = canvas.width;
+const H = canvas.height;
+
+const PIPE_WIDTH = 60;
+const GAP = 220;
+const PLAYER_X = 120;
+
+let y = H/2;
+let vy = 0;
+let pipes = [];
+let score = 0;
+let best = 0;
+let timer = 0;
+let running = false;
+
+// effets
+let flipHorizontal = false;
+let rotation = 0;
+let rotationSpeed = 0;
+let effectTimer = 0;
+const EFFECT_INTERVAL = 200;
+
+// effets random
+function randomEffect() {
+  let r = Math.random();
+  flipHorizontal = false;
+  rotationSpeed = 0;
+
+  if(r < 0.33) {
+    flipHorizontal = true;
+  } else if(r < 0.66) {
+    rotationSpeed = (Math.random() - 0.5) * 0.3;
+  }
+}
+
+// controls
+function flap(){
+  running = true;
+  vy = -9;
+}
+
+document.addEventListener("keydown", e=>{
+  if(e.code==="Space") flap();
+});
+
+canvas.addEventListener("click", flap);
+
+// spawn tuyaux
+function spawnPipe(){
+  let margin = 80;
+  let gapY = Math.random()*(H-GAP-margin*2)+margin;
+  pipes.push({ x:W, gapY, passed:false });
+}
+
+// reset
+function reset(){
+  if(score > best) best = score;
+
+  y = H/2;
+  vy = 0;
+  pipes = [];
+  score = 0;
+  running = false;
+  timer = 0;
+  flipHorizontal = false;
+  rotation = 0;
+  rotationSpeed = 0;
+}
+
+// boucle
+function loop(){
+  requestAnimationFrame(loop);
+
+  ctx.save();
+
+  // fond
+  let g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,"#65737a");
+  g.addColorStop(1,"#a7adba");
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+
+  if(running){
+    vy += 0.35;
+    y += vy;
+    timer += 1/60;
+    effectTimer++;
+
+    if(effectTimer >= EFFECT_INTERVAL) {
+      effectTimer = 0;
+      randomEffect();
+    }
+
+    if(pipes.length===0 || pipes[pipes.length-1].x < W-250){
+      spawnPipe();
+    }
+
+    pipes.forEach(p=>p.x -= 2.2);
+
+    rotation += rotationSpeed;
+    rotationSpeed *= 0.98;
+  }
+
+  // transformations
+  ctx.translate(W/2, H/2);
+  ctx.rotate(rotation);
+  if(flipHorizontal) ctx.scale(-1,1);
+  ctx.translate(-W/2, -H/2);
+
+  // tuyaux
+  pipes.forEach(p=>{
+    drawPipe(p.x,0,PIPE_WIDTH,p.gapY);
+    drawPipe(p.x,p.gapY+GAP,PIPE_WIDTH,H);
+  });
+
+  // joueur
+  ctx.fillStyle="white";
+  ctx.beginPath();
+  ctx.arc(PLAYER_X,y,12,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+
+  // collisions
+  pipes.forEach(p=>{
+    if(!p.passed && p.x+PIPE_WIDTH < PLAYER_X){
+      p.passed = true;
+      score++;
+    }
+
+    let collisionX = PLAYER_X+12 > p.x && PLAYER_X-12 < p.x+PIPE_WIDTH;
+    let inGap = y > p.gapY && y < p.gapY+GAP;
+
+    if(collisionX && !inGap){
+      reset();
+    }
+  });
+
+  pipes = pipes.filter(p=>p.x > -PIPE_WIDTH);
+
+  // HUD
+  ctx.fillStyle="#c0c5ce";
+  ctx.font="bold 26px Arial";
+
+  ctx.textAlign="left";
+  ctx.fillText("Score : "+score, 20, 40);
+
+  ctx.textAlign="center";
+  let timeLeft = Math.ceil((EFFECT_INTERVAL - effectTimer) / 60);
+  ctx.fillText("Timer : " + timeLeft, W/2, 40);
+
+  ctx.textAlign="right";
+  ctx.fillText("Best : "+best, W - 20, 40);
+
+  // message départ
+  if(!running){
+    ctx.fillStyle="white";
+    ctx.textAlign="center";
+    ctx.font="28px Arial";
+     }
+}
+
+function drawPipe(x,y,w,h){
+  ctx.fillStyle="#222021";
+  ctx.fillRect(x,y,w,h);
+  ctx.fillRect(x,y,w,10);
+}
+
+loop();
+}
 </script>
 
 </body>
