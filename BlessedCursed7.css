@@ -16,6 +16,13 @@ body{
   gap: 20px;
 }
 
+iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
 /* Règles */
 #rules {
   font-size: 18px;
